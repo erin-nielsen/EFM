@@ -1,0 +1,130 @@
+---
+architecture: PGD-Always-ON
+cluster_name: democluster
+cluster_tags:
+  Owner: enterprisedb
+
+keyring_backend: legacy
+vault_name: 084b1a55-47f9-4351-876a-e406f6bbd614
+
+cluster_rules:
+- cidr_ip: 0.0.0.0/0
+  from_port: 22
+  proto: tcp
+  to_port: 22
+- cidr_ip: 10.33.36.112/28
+  from_port: 0
+  proto: tcp
+  to_port: 65535
+ec2_ami:
+  Name: debian-10-amd64-20230601-1398
+  Owner: '136693071363'
+ec2_instance_reachability: public
+ec2_vpc:
+  eu-west-1:
+    Name: Test
+    cidr: 10.33.0.0/16
+
+cluster_vars:
+  apt_repository_list: []
+  bdr_database: bdrdb
+  bdr_node_group: democluster
+  bdr_node_groups:
+  - name: democluster
+  - name: dc1_subgroup
+    options:
+      enable_proxy_routing: true
+      enable_raft: true
+      location: dc1
+    parent_group_name: democluster
+  bdr_version: '5'
+  default_pgd_proxy_options:
+    listen_port: 6432
+  edb_repositories:
+  - enterprise
+  - postgres_distributed
+  epas_redwood_compat: true
+  failover_manager: pgd
+  postgres_coredump_filter: '0xff'
+  postgres_flavour: epas
+  postgres_version: '15'
+  preferred_python_version: python3
+  use_volatile_subscriptions: false
+  yum_repository_list:
+  - EPEL
+
+locations:
+- Name: dc1
+  az: eu-west-1a
+  region: eu-west-1
+  subnet: 10.33.36.112/28
+
+instance_defaults:
+  default_volumes:
+  - device_name: root
+    encrypted: true
+    volume_size: 16
+    volume_type: gp2
+  - device_name: /dev/sdf
+    encrypted: true
+    vars:
+      volume_for: postgres_data
+    volume_size: 64
+    volume_type: gp2
+  platform: aws
+  type: t3.micro
+  vars:
+    ansible_user: admin
+
+instances:
+- Name: dc-pgd1
+  backup: dc-barman
+  location: dc1
+  node: 1
+  role:
+  - bdr
+  - pgd-proxy
+  - pem-agent
+  vars:
+    bdr_child_group: dc1_subgroup
+    bdr_node_options:
+      route_priority: 100
+- Name: dc-pgd2
+  location: dc1
+  node: 2
+  role:
+  - bdr
+  - pgd-proxy
+  - pem-agent
+  vars:
+    bdr_child_group: dc1_subgroup
+    bdr_node_options:
+      route_priority: 100
+- Name: dc-witness
+  location: dc1
+  node: 3
+  role:
+  - bdr
+  - pgd-proxy
+  - pem-agent
+  vars:
+    bdr_child_group: dc1_subgroup
+    bdr_node_options:
+      route_priority: 100
+- Name: dc-barman
+  location: dc1
+  node: 4
+  role:
+  - barman
+  volumes:
+  - device_name: /dev/sdf
+    encrypted: true
+    vars:
+      volume_for: barman_data
+    volume_size: 128
+    volume_type: gp2
+- Name: dc-pemserver
+  location: dc1
+  node: 5
+  role:
+  - pem-server

@@ -1,0 +1,69 @@
+
+# start in iTerm2
+~/Documents/Training/edbkub
+
+#
+
+kubectl create cluster --name demo
+
+kubectl config get-contexts
+
+kubectl cluster-info --context kind-demo
+
+kubectl config use-context kind-demo
+
+# This installs the latest operator manifest
+kubectl apply --server-side -f  https://get.enterprisedb.io/cnp/postgresql-operator-1.22.3.yaml
+
+1.23 does not properly fail over!!!
+
+# Verify it
+kubectl get deployment -n postgresql-operator-system postgresql-operator-controller-manager
+
+# Show the YAML we will run cluster-example.yaml
+cat cluster-example.yaml
+
+# Create the cluster!
+
+
+
+# Discuss that it will download the latest version of postgres by default
+
+#View the 3 nodes as it's creating
+watch -n 2 "kubectl cnp status cluster-example | grep test1-control-plane"
+
+kubectl cnp status cluster-example 
+
+# Connects to primary instance by defaultkube
+kubectl cnp psql cluster-with-metrics
+
+# Now create a table connect to primary.
+Create table test2(i int primary key, c varchar);
+Insert into test values(1,'A');
+
+# Now add another node 4 and re-run it to show how easy to spin up another node and can spin down.
+kubectl apply -f cluster-example2.yaml
+
+kubectl cnp status cluster-example 
+
+kubectl delete pod cluster-example-1 --grace-period=2
+
+kubectl cnp status cluster-example 
+
+# Can manually promote a node
+kubectl cnp promote cluster-example cluster-example-3
+
+
+# Other notes to say what it can do
+# rollout restart for those cluster dependant objects like ConfigMaps for monitoring queries
+kubectl cnp restart cluster-example
+kubectl cnp restart cluster-example cluster-example-3
+# If components support dynamic relaoding can just reload cluster
+kubectl cnp reload cluster-example
+
+
+
+Questions:
+
+What does it mean if a node is Standby (async) vs Standby (file based)
+How do you connect to specific node

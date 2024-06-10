@@ -1,0 +1,117 @@
+---
+architecture: M1
+cluster_name: efm
+cluster_tags: {}
+
+cluster_vars:
+  apt_repository_list: []
+  edb_repositories:
+  - enterprise
+  edb_repos_token: pdZe6pcnWIgmuqdR7v1L38rG6Z6wJEsY
+  enable_pg_backup_api: true
+  epas_redwood_compat: true
+  failover_manager: efm
+  postgres_flavour: epas
+  postgres_version: '15'
+  preferred_python_version: python3
+  use_volatile_subscriptions: false
+  yum_repository_list:
+  - EPEL
+  extra_postgres_packages:
+    common:
+      - edb-as15-server-edb_wait_states
+      - edb-as15-server-sqlprofiler
+      - edb-as15-server-indexadvisor
+      - edb-as15-postgres-tuner1
+      - edb-as15-pg-failover-slots1
+  preload_extensions:
+  - edb_wait_states
+  - sql-profiler
+  - edb_pg_tuner
+  postgres_databases:
+    - name: postgres
+      extensions:
+      - name: pg_stat_statements
+      - name: edb_wait_states
+      - name: sql_profiler
+      - name: edb_pg_tuner
+  effective_cache_size_ratio: 0.75
+  effective_io_concurrency: 50
+  random_page_cost: 2
+  log_destination: "'csvlog,syslog'"
+  logging_collector: on
+  log_filename: 'edb-%Y-%m-%d_%H%M%S.log'
+  log_rotation_age: 1d
+  log_rotation_size: 0MB
+  log_truncate_on_rotation: off
+  syslog_facility: 'LOCAL6'
+  syslog_ident: 'postgres'
+  log_min_messages: warning
+  log_min_error_statement: error
+  log_min_duration_statement: 5000
+  log_autovacuum_min_duration: 5000
+  log_checkpoints: on
+  log_connections: off
+  log_disconnections: off
+  log_duration: off
+  log_error_verbosity: default
+  log_hostname: off
+  log_line_prefix: '%t'
+  log_lock_waits: on
+  log_statement: 'ddl'
+  log_temp_files: 8192
+  edb_audit: 'csv'
+  edb_audit_filename: 'audit-%Y-%m-%d_%H%M%S'
+  edb_audit_rotation_day: 'every'
+  edb_audit_rotation_size: 0
+  edb_audit_rotation_seconds: 0
+  edb_audit_connect: 'none'
+  edb_audit_disconnect: 'none'
+  edb_audit_statement: 'ddl'
+  edb_audit_tag: ''
+  edb_audit_destination: 'file'
+  efm_conf_settings:
+    local.period: 1
+    local.timeout: 5
+    local.timeout.final: 10
+    remote.timeout: 10
+    node.timeout: 15
+    update.physical.slots.period: 5
+    ping.server.ip: 10.1.0.4
+    application.name: efm
+    recovery.check.period: 1
+    restart.connection.timeout: 5
+    auto.resume.period: 5
+
+locations:
+- Name: East-US-2
+
+instance_defaults:
+  platform: bare
+  vars:
+    ansible_user: ccavitt
+
+instances:
+- Name: cc-efm-1
+  ip_address: 10.1.0.5
+  backup: cc-pem
+  location: East-US-2
+  node: 1
+  role:
+  - primary
+- Name: cc-efm-2
+  ip_address: 10.1.0.6
+  location: East-US-2
+  node: 2
+  role:
+  - replica
+  upstream: cc-efm-1
+- Name: cc-pem
+  ip_address: 10.1.0.4
+  location: East-US-2
+  node: 3
+  role:
+  - barman
+  - log-server
+  - monitoring-server
+  - efm-witness

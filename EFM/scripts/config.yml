@@ -1,0 +1,99 @@
+---
+architecture: M1
+cluster_name: efmdemo
+cluster_tags:
+  Owner: enterprisedb
+keyring_backend: legacy
+vault_name: 0fe92276-59f7-4201-a566-c5cd2e8d92af
+
+cluster_rules:
+- cidr_ip: 3.136.29.18/32
+  from_port: 22
+  proto: tcp
+  to_port: 22
+- cidr_ip: 10.33.158.176/28
+  from_port: 0
+  proto: tcp
+  to_port: 65535
+ec2_ami:
+  Name: RHEL-8.7.0_HVM-20230330-x86_64-56-Hourly2-GP2
+  Owner: '309956199498'
+ec2_instance_reachability: public
+ec2_vpc:
+  us-east-1:
+    Name: Test
+    cidr: 10.33.0.0/16
+
+cluster_vars:
+  apt_repository_list: []
+  edb_repositories:
+  - enterprise
+  epas_redwood_compat: true
+  failover_manager: efm
+  postgres_flavour: epas
+  postgres_version: '16'
+  preferred_python_version: python3
+  use_volatile_subscriptions: false
+  yum_repository_list:
+  - EPEL
+
+locations:
+- Name: main
+  az: us-east-1a
+  region: us-east-1
+  subnet: 10.33.158.176/28
+
+instance_defaults:
+  default_volumes:
+  - device_name: root
+    encrypted: true
+    volume_size: 16
+    volume_type: gp2
+  - device_name: /dev/sdf
+    encrypted: true
+    vars:
+      volume_for: postgres_data
+    volume_size: 16
+    volume_type: gp2
+  platform: aws
+  type: t3.medium
+  vars:
+    ansible_user: ec2-user
+
+instances:
+- Name: redhat-efm1
+  backup: redhat-efm-barman
+  location: main
+  node: 1
+  role:
+  - primary
+  - pem-agent
+- Name: redhat-efm2
+  location: main
+  node: 2
+  role:
+  - replica
+  - pem-agent
+  upstream: redhat-efm1
+- Name: redhat-efm-barman
+  location: main
+  node: 3
+  role:
+  - barman
+  - log-server
+  - witness
+  - pem-agent
+  - monitoring-server
+  upstream: redhat-efm1
+  volumes:
+  - device_name: /dev/sdf
+    encrypted: true
+    vars:
+      volume_for: barman_data
+    volume_size: 32
+    volume_type: gp2
+- Name: pemserver
+  location: main
+  node: 4
+  role:
+  - pem-server

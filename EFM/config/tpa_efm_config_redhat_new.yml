@@ -1,0 +1,172 @@
+---
+architecture: M1
+cluster_name: efm
+cluster_tags:
+  Owner: enterprisedb
+
+keyring_backend: legacy
+vault_name: 0ae91fa7-9389-4ab1-9144-8b37ba854268
+
+cluster_rules:
+- cidr_ip: 0.0.0.0/0
+  from_port: 22
+  proto: tcp
+  to_port: 22
+- cidr_ip: 10.33.224.176/28
+  from_port: 0
+  proto: tcp
+  to_port: 65535
+- cidr_ip: 10.33.158.176/28
+  from_port: 0
+  proto: tcp
+  to_port: 65535
+ec2_ami:
+  Name: RHEL-8.7.0_HVM-20230330-x86_64-56-Hourly2-GP2
+  Owner: '309956199498'
+ec2_instance_reachability: public
+ec2_vpc:
+  us-east-1:
+    Name: Test
+    cidr: 10.33.0.0/16
+
+cluster_vars:
+  apt_repository_list: []
+  edb_repositories:
+  - enterprise
+  epas_redwood_compat: true
+  failover_manager: efm
+  postgres_flavour: epas
+  postgres_version: '15'
+  preferred_python_version: python3
+  use_volatile_subscriptions: false
+  yum_repository_list:
+  - EPEL
+  extra_postgres_packages:
+    common:
+      - edb-as15-server-edb_wait_states
+      - edb-as15-server-sqlprofiler
+      - edb-as15-server-indexadvisor
+      - edb-as15-postgres-tuner1
+      - edb-as15-pg-failover-slots1
+  preload_extensions:
+  - edb_wait_states
+  - sql-profiler
+  - edb_pg_tuner
+  postgres_databases:
+    - name: postgres
+      extensions:
+      - name: pg_stat_statements
+      - name: edb_wait_states
+      - name: sql_profiler
+      - name: edb_pg_tuner
+  effective_cache_size_ratio: 0.75
+  effective_io_concurrency: 50
+  random_page_cost: 2
+  log_destination: "'csvlog,syslog'"
+  logging_collector: on
+  log_filename: 'edb-%Y-%m-%d_%H%M%S.log'
+  log_rotation_age: 1d
+  log_rotation_size: 0MB
+  log_truncate_on_rotation: off
+  syslog_facility: 'LOCAL6'
+  syslog_ident: 'postgres'
+  log_min_messages: warning
+  log_min_error_statement: error
+  log_min_duration_statement: 5000
+  log_autovacuum_min_duration: 5000
+  log_checkpoints: on
+  log_connections: off
+  log_disconnections: off
+  log_duration: off
+  log_error_verbosity: default
+  log_hostname: off
+  log_line_prefix: '%t'
+  log_lock_waits: on
+  log_statement: 'ddl'
+  log_temp_files: 8192
+  edb_audit: 'csv'
+  edb_audit_filename: 'audit-%Y-%m-%d_%H%M%S'
+  edb_audit_rotation_day: 'every'
+  edb_audit_rotation_size: 0
+  edb_audit_rotation_seconds: 0
+  edb_audit_connect: 'none'
+  edb_audit_disconnect: 'none'
+  edb_audit_statement: 'ddl'
+  edb_audit_tag: ''
+  edb_audit_destination: 'file'
+  efm_conf_settings:
+    local.period: 1
+    local.timeout: 5
+    local.timeout.final: 10
+    remote.timeout: 10
+    node.timeout: 15
+    update.physical.slots.period: 5
+    ping.server.ip: 10.1.0.4
+    application.name: efm
+    recovery.check.period: 1
+    restart.connection.timeout: 5
+    auto.resume.period: 5
+
+locations:
+- Name: main
+  az: us-east-1a
+  region: us-east-1
+  subnet: 10.33.158.176/28
+
+instance_defaults:
+  default_volumes:
+  - device_name: root
+    encrypted: true
+    volume_size: 16
+    volume_type: gp2
+  - device_name: /dev/sdf
+    encrypted: true
+    vars:
+      volume_for: postgres_data
+    volume_size: 16
+    volume_type: gp2
+  platform: aws
+  type: t3.medium
+  vars:
+    ansible_user: ec2-user
+
+instances:
+- Name: redhat-efm1
+  backup: redhat-efm-barman
+  location: main
+  node: 1
+  role:
+  - primary
+  - pem-agent
+
+- Name: redhat-efm2
+  location: main
+  node: 2
+  role:
+  - replica
+  - pem-agent
+  upstream: redhat-efm1
+
+- Name: redhat-efm-barman
+  location: main
+  node: 3
+  role:
+  - barman
+  - log-server
+  - monitoring-server
+  - efm-witness
+  - pem-agent
+  volumes:
+  - device_name: /dev/sdf
+    encrypted: true
+    vars:
+      volume_for: barman_data
+    volume_size: 32
+    volume_type: gp2
+
+- Name: redhat-efm-pem
+  location: main
+  node: 4
+  role:
+  - pem-server
+  upstream: redhat-efm2
