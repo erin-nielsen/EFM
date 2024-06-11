@@ -7,7 +7,7 @@ cluster_vars:
   apt_repository_list: []
   edb_repositories:
   - enterprise
-  edb_repos_token: pdZe6pcnWIgmuqdR7v1L38rG6Z6wJEsY
+  edb_repos_token: xxx
   enable_pg_backup_api: true
   epas_redwood_compat: true
   failover_manager: efm
